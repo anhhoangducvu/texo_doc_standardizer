@@ -195,6 +195,6 @@ with col2:
 
     else:
         if not uploaded_files:
-            st.markdown("<div style='height: 200px; border: 2px dashed #333; border-radius: 12px; display: flex; align-items: center; justify-content: center; color: #666;'>Tải tệp .docx để chuẩn hóa hàng loạt</div>", unsafe_allow_html=True)
+            st.markdown("<div style='text-align: center; color: #64748b; font-weight: 500; padding: 100px 20px;'>Hệ thống đang chờ lệnh... <br>Vui lòng cấu hình và tải hồ sơ ở cột bên trái để bắt đầu.</div>", unsafe_allow_html=True)
 
 st.markdown("<div class='footer'>TEXO Engineering Department | AI Master Standardizer | Hoàng Đức Vũ</div>", unsafe_allow_html=True)
