@@ -10,11 +10,15 @@ st.set_page_config(page_title="TEXO Document Standardizer", page_icon="📄", la
 
 # --- STYLE PREMIUM ---
 st.markdown("""
-<style>
-    .stApp { background-color: #0A1931 !important; color: #ffffff !important; }
-    h1, h2, h3, h4, h5, h6, p, span, div, li, label, .stMarkdown { color: #ffffff !important; }
+    /* --- TỐI ƯU HÓA LÀM SẠCH CSS CHO CẢ 2 CHẾ ĐỘ --- */
+    h1, h2, h3, h4, .main-header { color: #FFD700 !important; }
+    
+    /* Chỉ áp dụng nền tối khi ở chế độ Dark, nếu Light thì để Streamlit tự xử lý */
+    [data-testid="stSidebar"] {
+        border-right: 1px solid rgba(255, 215, 0, 0.2);
+    }
+    
     .main-header { 
-        color: #FFD700 !important; 
         font-weight: 800; 
         font-size: 40px; 
         text-align: center; 
@@ -38,15 +42,17 @@ st.markdown("""
         transform: scale(1.02); 
         transition: 0.2s; 
     }
-    .stSelectbox div[data-baseweb="select"] { background-color: #152A4A !important; color: white !important; }
+    /* Dropdown color fix */
+    .stSelectbox div[data-baseweb="select"] { border: 1px solid rgba(255, 215, 0, 0.2) !important; }
+    
     .status-card {
-        background: rgba(255, 255, 255, 0.05);
+        background: rgba(255, 215, 0, 0.05);
         border-radius: 10px;
         padding: 15px;
         margin-bottom: 10px;
         border-left: 4px solid #FFD700;
     }
-    .footer { text-align: center; color: #888; font-size: 12px; margin-top: 50px; border-top: 1px solid #152A4A; padding-top: 20px; }
+    .footer { text-align: center; color: #888; font-size: 12px; margin-top: 50px; border-top: 1px solid rgba(255, 215, 0, 0.2); padding-top: 20px; }
 </style>
 """, unsafe_allow_html=True)
 
