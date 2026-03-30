@@ -32,23 +32,21 @@ def correct_grammar_and_spell(text):
     for pattern, replacement in TEXO_SPELL_CHECK_MAP.items():
         text = re.sub(pattern, replacement, text, flags=re.IGNORECASE)
     
-    # 2. Quy tắc viết số đếm (01, 02...)
-    text = re.sub(r"\b([1-9])\b(?!/)", r"0\1", text) 
+    # 2. Quy tắc viết ngày tháng (Chỉ áp dụng cho Ngày/Tháng để tránh sai lệch các số thứ tự khác)
+    # Định dạng: ngày 1 -> ngày 01, tháng 2 -> tháng 02
+    text = re.sub(r"(ngày|tháng)\s+([1-9])\b", r"\1 0\2", text, flags=re.IGNORECASE)
     
-    # 3. Quy tắc viết ngày tháng (chỉ 01, 02 cho tháng)
-    # Tìm dạng dd/mm/yyyy
-    def date_fixer(match):
-        day = match.group(1)
-        month = match.group(2)
-        year = match.group(3)
-        # Thêm 0 cho tháng 1, 2 nếu chưa có
-        if month in ["1", "2"]: month = "0" + month
-        return f"{day}/{month}/{year}"
+    # Định dạng: 1/2/2026 -> 01/02/2026
+    def date_slash_fixer(match):
+        d, m, y = match.groups()
+        new_d = d if len(d) == 2 else "0" + d
+        new_m = m if len(m) == 2 else "0" + m
+        return f"{new_d}/{new_m}/{y}"
     
-    text = re.sub(r"(\d{1,2})/(\d{1,2})/(\d{4})", date_fixer, text)
+    text = re.sub(r"\b(\d{1,2})/(\d{1,2})/(\d{4})\b", date_slash_fixer, text)
 
-    # 4. Quy tắc "bốn" vs "tư" (Đơn giản hóa: nếu trước nó là "mươi" thì dùng "tư", trừ mười bốn)
-    text = re.sub(r"mươi bốn", "mươi tư", text)
+    # 3. Quy tắc "bốn" vs "tư" (Đơn giản hóa: nếu trước nó là "mươi" thì dùng "tư", trừ mười bốn)
+    text = re.sub(r"mươi bốn", "mươi tư", text, flags=re.IGNORECASE)
     
     return text
 
@@ -76,36 +74,48 @@ def apply_texo_internal_standard(input_path, output_path, is_letterhead=False):
     
     # 2. Xử lý các đoạn văn bản (Paragraphs)
     for para in doc.paragraphs:
-        # Sửa nội dung
-        if para.text.strip():
-            # Sửa lỗi chính tả & ngữ pháp toàn diện
-            original_text = para.text
-            new_text = correct_grammar_and_spell(original_text)
-            
-            # Cập nhật run để giữ format nhất định (bold/italic) nếu có thể, 
-            # nhưng ưu tiên gán lại text sạch
-            if original_text != new_text:
-                para.text = new_text
-
-        # Căn lề đều hai bên
+        # Căn lề đều hai bên (trừ Center)
         if para.alignment != WD_ALIGN_PARAGRAPH.CENTER:
             para.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
         
-        # Giãn dòng Exactly 17pt
-        para.paragraph_format.line_spacing_rule = WD_LINE_SPACING.EXACTLY
-        para.paragraph_format.line_spacing = Pt(17)
-        para.paragraph_format.space_after = Pt(6) # Spacing After 6pt theo TEXO
+        # --- CẤU HÌNH SPACING (6pt/3pt) ---
+        para.paragraph_format.space_before = Pt(6)
+        para.paragraph_format.space_after = Pt(3)
+        # Loại bỏ "Don't add space between paragraphs of same style" (nếu có hỗ trợ)
+        try:
+            para.paragraph_format.line_spacing_rule = WD_LINE_SPACING.EXACTLY
+            para.paragraph_format.line_spacing = Pt(17)
+            # Tắt tính năng contextual spacing
+            pPr = para._element.get_or_add_pPr()
+            contextualSpacer = pPr.find(docx.oxml.ns.qn('w:contextualSpacing'))
+            if contextualSpacer is not None:
+                pPr.remove(contextualSpacer)
+        except:
+            pass
 
-        # Xử lý format run (Font, Size)
+        # Kiểm tra xem có phải "Dòng tiêu đề lớn" (TỜ TRÌNH, CÔNG VĂN...) không
+        is_big_title = False
+        clean_text = para.text.strip()
+        if clean_text.isupper() and len(clean_text) < 100:
+            is_big_title = True
+
+        # Xử lý nội dung và format ở cấp độ RUN
         for run in para.runs:
+            if run.text.strip():
+                run.text = correct_grammar_and_spell(run.text)
+                
+            # Áp dụng Font chuẩn
             run.font.name = 'Times New Roman'
-            # Cỡ chữ 13 cho chữ thường, 12 cho chữ hoa
-            if run.text.isupper():
-                run.font.size = Pt(12)
-            else:
-                run.font.size = Pt(13)
             
-            # Quy tắc "Kính gửi": in đậm
+            # --- CẤU HÌNH SIZE THEO YÊU CẦU ANH VŨ ---
+            if is_big_title:
+                run.font.size = Pt(14)  # Tiêu đề lớn dùng 14
+            elif run.text.isupper():
+                run.font.size = Pt(12)  # Các tiêu đề con/khác in hoa dùng 12
+            else:
+                run.font.size = Pt(13)  # Nội dung thường dùng 13
+            
+            # Giữ nguyên Bold/Italic, auto-bold "Kính gửi"
             if "Kính gửi" in run.text:
                 run.bold = True
 
@@ -113,12 +123,20 @@ def apply_texo_internal_standard(input_path, output_path, is_letterhead=False):
     for table in doc.tables:
         for row in table.rows:
             for cell in row.cells:
+                # Phải lặp qua cả các đoạn văn trong cell
                 for para in cell.paragraphs:
+                    # Trong bảng giãn dòng nhỏ hơn (15pt) để cân đối
                     para.paragraph_format.line_spacing_rule = WD_LINE_SPACING.EXACTLY
-                    para.paragraph_format.line_spacing = Pt(15) # Trong bảng giãn nhỏ hơn chút
+                    para.paragraph_format.line_spacing = Pt(15) 
+                    
                     for run in para.runs:
+                        if run.text.strip():
+                            # Sửa lỗi chính tả & Ngày/Tháng trong bảng
+                            run.text = correct_grammar_and_spell(run.text)
+                        
+                        # Áp dụng font chuẩn cho bảng
                         run.font.name = 'Times New Roman'
-                        run.font.size = Pt(12)
+                        run.font.size = Pt(12) 
     
     # 4. Lưu file
     doc.save(output_path)

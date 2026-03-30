@@ -23,8 +23,13 @@ VIETNAMESE_SPELL_CHECK_MAP = {
 }
 
 def correct_text(text):
+    # 1. Sửa lỗi từ điển
     for pattern, replacement in VIETNAMESE_SPELL_CHECK_MAP.items():
         text = re.sub(pattern, replacement, text, flags=re.IGNORECASE)
+    
+    # 2. Sửa lỗi Ngày/Tháng thiếu số 0 (chỉ áp dụng cho Ngày/Tháng)
+    text = re.sub(r"(ngày|tháng)\s+([1-9])\b", r"\1 0\2", text, flags=re.IGNORECASE)
+    
     return text
 
 def apply_nd30_standard(input_path, output_path):

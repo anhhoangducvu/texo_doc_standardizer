@@ -1,22 +1,52 @@
 import streamlit as st
 import io
 import os
+import zipfile
 from core.gov_standard import apply_nd30_standard
 from core.internal_standard import apply_texo_internal_standard
 
 # --- CONFIG ---
-st.set_page_config(page_title="TEXO Document Master", page_icon="📄", layout="wide")
+st.set_page_config(page_title="TEXO Document Standardizer", page_icon="📄", layout="wide")
 
 # --- STYLE PREMIUM ---
 st.markdown("""
 <style>
     .stApp { background-color: #0A1931 !important; color: #ffffff !important; }
     h1, h2, h3, h4, h5, h6, p, span, div, li, label, .stMarkdown { color: #ffffff !important; }
-    .main-header { color: #FFD700 !important; font-weight: 800; font-size: 32px; text-align: center; border-bottom: 2px solid #FFD700; padding-bottom: 10px; margin-bottom: 20px; }
-    .stButton>button { background: #152A4A !important; color: #FFD700 !important; border: 1px solid #FFD700 !important; border-radius: 12px; font-weight: bold; height: 3.5em; width: 100%; }
-    .stButton>button:hover { background: #FFD700 !important; color: #0A1931 !important; transform: scale(1.02); transition: 0.2s; }
+    .main-header { 
+        color: #FFD700 !important; 
+        font-weight: 800; 
+        font-size: 40px; 
+        text-align: center; 
+        border-bottom: 2px solid rgba(255, 215, 0, 0.3); 
+        padding-bottom: 10px; 
+        margin-bottom: 30px; 
+    }
+    .stButton>button { 
+        background: linear-gradient(135deg, #152A4A 0%, #1e3a8a 100%) !important; 
+        color: #FFD700 !important; 
+        border: 1px solid #FFD700 !important; 
+        border-radius: 12px; 
+        font-weight: bold; 
+        padding: 0.5rem 1rem;
+        width: 100%; 
+        box-shadow: 0 4px 15px rgba(255, 215, 0, 0.1);
+    }
+    .stButton>button:hover { 
+        background: #FFD700 !important; 
+        color: #0A1931 !important; 
+        transform: scale(1.02); 
+        transition: 0.2s; 
+    }
     .stSelectbox div[data-baseweb="select"] { background-color: #152A4A !important; color: white !important; }
-    .footer { text-align: center; color: #888; font-size: 12px; margin-top: 50px; }
+    .status-card {
+        background: rgba(255, 255, 255, 0.05);
+        border-radius: 10px;
+        padding: 15px;
+        margin-bottom: 10px;
+        border-left: 4px solid #FFD700;
+    }
+    .footer { text-align: center; color: #888; font-size: 12px; margin-top: 50px; border-top: 1px solid #152A4A; padding-top: 20px; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -26,42 +56,65 @@ def check_password():
     if st.session_state.authenticated: return True
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
-        st.markdown("<h2 style='text-align: center; color: #FFD700;'>🏦 TEXO DOC MASTER</h2>", unsafe_allow_html=True)
-        pwd = st.text_input("Mật khẩu truy cập:", type="password")
+        st.markdown("<h2 style='text-align: center; color: #FFD700; margin-top: 100px;'>🏦 TEXO STANDARDIZER AUTH</h2>", unsafe_allow_html=True)
+        pwd = st.text_input("Mật khẩu truy cập hệ thống:", type="password")
         if st.button("XÁC THỰC"):
             if pwd == "texo2026":
                 st.session_state.authenticated = True
                 st.rerun()
-            else: st.error("❌ Truy cập không hợp lệ.")
+            else: st.error("❌ Mật khẩu không chính xác.")
     return False
 
 if not check_password(): st.stop()
 
-# --- MAIN ---
-st.markdown("<div class='main-header'>📄 CHUẨN HÓA VĂN BẢN MASTER</div>", unsafe_allow_html=True)
+# --- INITIALIZE STATE ---
+if "standardized_files" not in st.session_state:
+    st.session_state.standardized_files = {} # {filename: {"data": b"", "out_path": ""}}
 
-col1, col2 = st.columns([1, 1], gap="large")
+# --- SIDEBAR ---
+with st.sidebar:
+    st.markdown("### 📘 Quy tắc chuẩn hóa")
+    st.info("Hệ thống tự động áp dụng 12 quy tắc vàng của TEXO:")
+    st.markdown("""
+    - **Font:** Times New Roman
+    - **Size:** Tiêu đề lớn 14, Tiêu đề khác 12, Nội dung 13
+    - **Lề:** Theo loại giấy (Thường/Letterhead)
+    - **Giãn dòng:** Exactly 17pt (Ngoài), 15pt (Trong bảng)
+    - **Spacing:** Before 6pt, After 3pt
+    """)
+    if st.button("♻️ LÀM MỚI DANH SÁCH"):
+        st.session_state.standardized_files = {}
+        st.rerun()
+
+# --- MAIN ---
+st.markdown("<div class='main-header'>📄 CHUẨN HÓA VĂN BẢN TEXO</div>", unsafe_allow_html=True)
+
+col1, col2 = st.columns([1, 1.2], gap="large")
 
 with col1:
     st.markdown("### ⚙️ Cấu hình Chuẩn hóa")
-    mode = st.selectbox("Bộ quy chuẩn Elite:", ["Quy định TEXO (12 quy tắc vàng)", "Nghị định 30/2020"])
+    mode = st.selectbox("Bộ quy chuẩn Elite:", ["Quy định TEXO (Nâng cao)", "Nghị định 30/2020 (Cơ bản)"])
     
     is_letterhead = False
     if "TEXO" in mode:
         paper_type = st.radio("Loại phôi giấy:", ["Giấy trắng thường", "Giấy Letterhead"], horizontal=True)
         is_letterhead = True if "Letterhead" in paper_type else False
 
-    f_up = st.file_uploader("Tải hồ sơ (.docx)", type=["docx"])
+    uploaded_files = st.file_uploader("Tải hồ sơ (.docx) - Chọn nhiều file", type=["docx"], accept_multiple_files=True)
 
 with col2:
     st.markdown("### 🚀 Thực thi & Tải về")
-    if f_up:
-        st.info(f"Tệp đã chọn: **{f_up.name}**")
-        if st.button("🚀 BẮT ĐẦU CHUẨN HÓA"):
-            with st.spinner("Đang áp dụng bộ quy chuẩn..."):
+    if uploaded_files:
+        if st.button("🚀 BẮT ĐẦU CHUẨN HÓA HÀNG LOẠT"):
+            progress_bar = st.progress(0)
+            status_text = st.empty()
+            
+            for i, f_up in enumerate(uploaded_files):
+                status_text.markdown(f"⏳ Đang xử lý ({i+1}/{len(uploaded_files)}): **{f_up.name}**")
                 try:
-                    in_path = "temp_in.docx"
-                    out_path = f"Master_{f_up.name}"
+                    in_path = f"temp_{f_up.name}"
+                    out_path = f"Standardized_{f_up.name}"
+                    
                     with open(in_path, "wb") as f:
                         f.write(f_up.getbuffer())
                     
@@ -70,15 +123,48 @@ with col2:
                     else:
                         apply_nd30_standard(in_path, out_path)
                     
-                    st.success("🎉 Hoàn tất chuẩn hóa.")
                     with open(out_path, "rb") as fo:
-                        st.download_button("📥 TẢI VỀ BẢN CHUẨN", fo, out_path)
+                        data = fo.read()
+                        st.session_state.standardized_files[f_up.name] = {"data": data, "out_path": out_path}
                     
                     # Cleanup
                     if os.path.exists(in_path): os.remove(in_path)
+                    if os.path.exists(out_path): os.remove(out_path)
                 except Exception as e:
-                    st.error(f"❌ Lỗi: {e}")
-    else:
-        st.markdown("<div style='height: 200px; border: 2px dashed #333; border-radius: 12px; display: flex; align-items: center; justify-content: center; color: #666;'>Vui lòng tải tệp .docx để bắt đầu</div>", unsafe_allow_html=True)
+                    st.error(f"Lỗi file {f_up.name}: {e}")
+                
+                progress_bar.progress((i + 1) / len(uploaded_files))
+            
+            status_text.success(f"✅ Đã chuẩn hóa xong {len(uploaded_files)} file!")
+            st.balloons()
+            
+    if st.session_state.standardized_files:
+        # Bulk Download Zip
+        if len(st.session_state.standardized_files) > 1:
+            zip_buffer = io.BytesIO()
+            with zipfile.ZipFile(zip_buffer, "a", zipfile.ZIP_DEFLATED, False) as zip_file:
+                for fname, fmeta in st.session_state.standardized_files.items():
+                    zip_file.writestr(fmeta["out_path"], fmeta["data"])
+            
+            st.download_button(
+                label="📥 TẢI XUỐNG TẤT CẢ (ZIP)",
+                data=zip_buffer.getvalue(),
+                file_name="TEXO_Standardized_Docs.zip",
+                mime="application/zip"
+            )
+            st.divider()
 
-st.markdown("<div class='footer'>TEXO Engineering Department | Version 2.0 (Standalone) | Hoàng Đức Vũ</div>", unsafe_allow_html=True)
+        # Individual Download
+        for fname, fmeta in st.session_state.standardized_files.items():
+            with st.container():
+                c1, c2 = st.columns([3, 1])
+                with c1:
+                    st.markdown(f"📄 **{fname}**")
+                with c2:
+                    st.download_button("📥 Tải về", fmeta["data"], fmeta["out_path"], key=f"dl_{fname}")
+
+    else:
+        if not uploaded_files:
+            st.markdown("<div style='height: 200px; border: 2px dashed #333; border-radius: 12px; display: flex; align-items: center; justify-content: center; color: #666;'>Tải tệp .docx để chuẩn hóa hàng loạt</div>", unsafe_allow_html=True)
+
+st.markdown("<div class='footer'>TEXO Engineering Department | AI Master Standardizer | Hoàng Đức Vũ</div>", unsafe_allow_html=True)
