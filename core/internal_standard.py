@@ -125,9 +125,15 @@ def apply_texo_internal_standard(input_path, output_path, is_letterhead=False):
             for cell in row.cells:
                 # Phải lặp qua cả các đoạn văn trong cell
                 for para in cell.paragraphs:
-                    # Trong bảng giãn dòng nhỏ hơn (15pt) để cân đối
+                    # Cấu hình Spacing và Indentation để bảng nhìn thoáng hơn
                     para.paragraph_format.line_spacing_rule = WD_LINE_SPACING.EXACTLY
                     para.paragraph_format.line_spacing = Pt(15) 
+                    para.paragraph_format.space_before = Pt(6)
+                    para.paragraph_format.space_after = Pt(3)
+                    
+                    # Thêm 2mm lề để chữ không bị dính sát vào cạnh bảng
+                    para.paragraph_format.left_indent = Mm(2)
+                    para.paragraph_format.right_indent = Mm(2)
                     
                     for run in para.runs:
                         if run.text.strip():

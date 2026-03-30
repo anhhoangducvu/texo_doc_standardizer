@@ -96,6 +96,7 @@ with col1:
                 - Letterhead: T40, B30, L30, R20
             - **Giãn dòng:** Exactly 17pt (Ngoài), 15pt (Trong bảng)
             - **Spacing:** Before 6pt, After 3pt
+            - **Bảng biểu:** Indent lề 2mm (tránh dính cạnh)
             - **Tắt Contextual Spacing**
             """)
         else:
