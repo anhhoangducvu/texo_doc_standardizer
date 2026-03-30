@@ -71,21 +71,6 @@ if not check_password(): st.stop()
 if "standardized_files" not in st.session_state:
     st.session_state.standardized_files = {} # {filename: {"data": b"", "out_path": ""}}
 
-# --- SIDEBAR ---
-with st.sidebar:
-    st.markdown("### 📘 Quy tắc chuẩn hóa")
-    st.info("Hệ thống tự động áp dụng 12 quy tắc vàng của TEXO:")
-    st.markdown("""
-    - **Font:** Times New Roman
-    - **Size:** Tiêu đề lớn 14, Tiêu đề khác 12, Nội dung 13
-    - **Lề:** Theo loại giấy (Thường/Letterhead)
-    - **Giãn dòng:** Exactly 17pt (Ngoài), 15pt (Trong bảng)
-    - **Spacing:** Before 6pt, After 3pt
-    """)
-    if st.button("♻️ LÀM MỚI DANH SÁCH"):
-        st.session_state.standardized_files = {}
-        st.rerun()
-
 # --- MAIN ---
 st.markdown("<div class='main-header'>📄 CHUẨN HÓA VĂN BẢN TEXO</div>", unsafe_allow_html=True)
 
@@ -94,6 +79,43 @@ col1, col2 = st.columns([1, 1.2], gap="large")
 with col1:
     st.markdown("### ⚙️ Cấu hình Chuẩn hóa")
     mode = st.selectbox("Bộ quy chuẩn Elite:", ["Quy định TEXO (Nâng cao)", "Nghị định 30/2020 (Cơ bản)"])
+    
+    # --- DYNAMIC SIDEBAR BASED ON MODE ---
+    with st.sidebar:
+        if "TEXO" in mode:
+            st.markdown("### 🏆 QUY TẮC VÀNG TEXO")
+            st.info("Hệ thống tự động áp dụng chuẩn độc quyền TEXO:")
+            st.markdown("""
+            - **Font:** Times New Roman
+            - **Size:** 
+                - Tiêu đề lớn (TỜ TRÌNH...): **14**
+                - Đề mục In hoa khác: **12**
+                - Nội dung thường: **13**
+            - **Lề (Margins):** 
+                - Thường: T20, B20, L30, R20
+                - Letterhead: T40, B30, L30, R20
+            - **Giãn dòng:** Exactly 17pt (Ngoài), 15pt (Trong bảng)
+            - **Spacing:** Before 6pt, After 3pt
+            - **Tắt Contextual Spacing**
+            """)
+        else:
+            st.markdown("### 📜 CHUẨN NGHỊ ĐỊNH 30")
+            st.info("Tuân thủ tuyệt đối quy định của Chính phủ:")
+            st.markdown("""
+            - **Font:** Times New Roman
+            - **Size:** Chuẩn **14** toàn văn bản
+            - **Lề (Margins):** 
+                - Trên/Dưới: 20-25mm
+                - Trái: 30-35mm
+                - Phải: 15-20mm
+            - **Giãn dòng:** 1.15 - 1.5 Pt
+            - **Căn lề:** Dóng đều 2 bên (Justified)
+            """)
+        
+        st.divider()
+        if st.button("♻️ LÀM MỚI DANH SÁCH"):
+            st.session_state.standardized_files = {}
+            st.rerun()
     
     is_letterhead = False
     if "TEXO" in mode:
