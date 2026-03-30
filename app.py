@@ -10,6 +10,7 @@ st.set_page_config(page_title="TEXO Document Standardizer", page_icon="📄", la
 
 # --- STYLE PREMIUM ---
 st.markdown("""
+<style>
     /* --- TỐI ƯU HÓA LÀM SẠCH CSS CHO CẢ 2 CHẾ ĐỘ --- */
     h1, h2, h3, h4, .main-header { color: #FFD700 !important; }
     
